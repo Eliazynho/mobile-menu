@@ -1,98 +1,89 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Link } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useRef, useState } from 'react';
+import { ActivityIndicator, SectionList, Text, View } from 'react-native';
 
-export default function HomeScreen() {
+import { CategoryList } from '../../components/category-list';
+import { Header } from '../../components/header';
+import { ProductItem } from '../../components/product-item';
+import { useRestaurantData } from '../../hooks/use-restaurant-data';
+import { Category } from '../../lib/types';
+
+export default function Home() {
+  const { restaurant, categories, isLoading } = useRestaurantData();
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const sectionListRef = useRef<SectionList>(null);
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 justify-center items-center bg-white">
+        <ActivityIndicator size="large" color="#DC2626" />
+      </View>
+    );
+  }
+
+  const sections = categories?.map((category: Category) => ({
+    title: category.name,
+    data: category.products,
+    id: category.id
+  })) || [];
+
+  const handleSelectCategory = (id: string) => {
+    setSelectedCategory(id);
+    const sectionIndex = sections.findIndex((section) => section.id === id);
+    if (sectionIndex >= 0 && sectionListRef.current) {
+        sectionListRef.current.scrollToLocation({
+            sectionIndex,
+            itemIndex: 0,
+            animated: true,
+            viewOffset: 50 // Compensação visual para o título não ficar escondido
+        });
+    }
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <View className="flex-1 bg-white">
+      <StatusBar style="light" backgroundColor="transparent" translucent />
+      
+      <SectionList
+        ref={sectionListRef}
+        sections={sections}
+        keyExtractor={(item) => item.id}
+        stickySectionHeadersEnabled={true} // O Segredo do "Sticky"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100 }}
+        
+        ListHeaderComponent={() => (
+          <View>
+             <Header restaurant={restaurant} />
+             
+             <View className="py-2 bg-white border-b border-gray-100">
+                <CategoryList 
+                    categories={categories || []} 
+                    selectedId={selectedCategory} 
+                    onSelect={handleSelectCategory}
+                />
+             </View>
+          </View>
+        )}
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+        // O cabeçalho da seção precisa ter fundo (bg-white) para cobrir o conteúdo ao rolar
+        renderSectionHeader={({ section: { title } }) => (
+          <View className="bg-white px-5 py-4 border-b border-gray-100/50">
+            <Text className="text-xl font-bold text-gray-900">
+                {title}
+            </Text>
+          </View>
+        )}
+
+        renderItem={({ item }) => (
+            <Link href={`/product/${item.id}`} asChild>
+                <View className="px-5">
+                    <ProductItem product={item} />
+                </View>
+            </Link>
+        )}
+      />
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
